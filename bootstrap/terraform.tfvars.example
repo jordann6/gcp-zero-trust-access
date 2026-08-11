@@ -1,0 +1,13 @@
+# Copy to terraform.tfvars and fill in. The real file is gitignored.
+#
+#   gcloud organizations list          -> org_id
+#   gcloud billing accounts list       -> billing_account
+
+org_id          = "000000000000"
+billing_account = "0X0X0X-0X0X0X-0X0X0X"
+
+name_prefix = "jn-zta"
+region      = "us-central1"
+
+# Flip to true only on the final teardown pass, once you are done with state.
+force_destroy_state = false

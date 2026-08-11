@@ -1,0 +1,26 @@
+name: Guardrails
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# The credentialed plan job from platform-guardrails is deliberately absent.
+# tf-plan.yml authenticates through an AWS OIDC role, and forcing a GCP repo
+# into it would put two clouds' auth paths in one shared workflow. The static
+# half is cloud-agnostic and does the work that matters on a pull request:
+# fmt, validate, tflint, Checkov, Trivy config, conftest against policy/, and
+# gitleaks over full history.
+jobs:
+  static:
+    uses: jordann6/platform-guardrails/.github/workflows/tf-ci.yml@v1
+    with:
+      terraform_dir: terraform
+
+  bootstrap:
+    uses: jordann6/platform-guardrails/.github/workflows/tf-ci.yml@v1
+    with:
+      terraform_dir: bootstrap

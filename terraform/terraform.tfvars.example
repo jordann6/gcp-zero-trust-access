@@ -1,0 +1,29 @@
+# Copy to terraform.tfvars and fill in. The real file is gitignored.
+#
+#   gcloud organizations list                                    -> org_id
+#   gcloud billing accounts list                                 -> billing_account
+#   terraform output -state=../bootstrap/terraform.tfstate ...   -> seed_project_id
+#   curl -s https://api.ipify.org                                -> trusted_ip_ranges
+
+org_id          = "000000000000"
+billing_account = "0X0X0X-0X0X0X-0X0X0X"
+seed_project_id = "jn-zta-seed-a1b2c3"
+
+admin_principal = "user:you@example.com"
+
+# Your current public IP as a /32. If your address changes, the IAP grant stops
+# being satisfied and the app returns 403. That is the control working, but it
+# is worth knowing before you go looking for a bug.
+trusted_ip_ranges = ["203.0.113.10/32"]
+
+name_prefix = "jn-zta"
+region      = "us-central1"
+zone        = "us-central1-a"
+
+# An org holds exactly one org-scoped access policy. Leave null on the first
+# run. If one already exists, put its numeric ID here:
+#   gcloud access-context-manager policies list --organization=ORG_ID
+access_policy_name = null
+
+# Apply false first. Read the dry-run violations. Only then set true.
+enforce_perimeter = false

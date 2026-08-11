@@ -1,0 +1,9 @@
+# Copy from the bootstrap layer's backend_hcl output, then:
+#   terraform init -backend-config=backend.hcl
+#
+# This bucket lives in the seed project, which is outside the perimeter, and it
+# has to stay that way. State inside the perimeter means a perimeter that
+# blocks its own removal.
+
+bucket = "jn-zta-seed-a1b2c3-tfstate"
+prefix = "zero-trust-access/dev"
