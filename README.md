@@ -163,7 +163,9 @@ The general shape is worth keeping. Two refusals that look identical from the ou
 
 **6. `terraform output -state=...` silently produced an empty file.** Reading the bootstrap output from the root module directory wrote a zero-byte `backend.hcl`, and the next error was about a nonexistent bucket rather than about an empty config. Run `terraform output` from the directory that owns the state.
 
-**7. `gcloud compute ssh` needs `--quiet`.** Without it the first run stops to ask about generating a key pair, and a scripted act hangs on a prompt nobody is watching.
+**7. IAM stores the email with the casing Google has on file, not the casing you typed.** The binding was created as `user:jordandn13@gmail.com` and stored as `user:JordanDN13@gmail.com`. Removing it with the lowercase form fails with "Policy binding with the specified principal, role, and condition not found", which reads like the binding was never made. Read the policy back before removing a binding by hand.
+
+**8. `gcloud compute ssh` needs `--quiet`.** Without it the first run stops to ask about generating a key pair, and a scripted act hangs on a prompt nobody is watching.
 
 ## Teardown
 
