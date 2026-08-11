@@ -20,6 +20,13 @@ name_prefix = "jn-zta"
 region      = "us-central1"
 zone        = "us-central1-a"
 
+# Makes the workload project ID unique: openssl rand -hex 3
+#
+# An input rather than a random_id because the in-perimeter provider takes the
+# workload project as its quota project, and a provider block cannot reference a
+# resource. Once set, keep it. Changing it renames the project.
+workload_name_suffix = "a1b2c3"
+
 # An org holds exactly one org-scoped access policy. Leave null on the first
 # run. If one already exists, put its numeric ID here:
 #   gcloud access-context-manager policies list --organization=ORG_ID

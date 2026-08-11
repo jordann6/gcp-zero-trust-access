@@ -6,12 +6,14 @@
 # a bucket the perimeter does not cover, so it can always plan the change that
 # removes the perimeter.
 
-resource "random_id" "suffix" {
-  byte_length = 3
-}
-
+# The suffix is an input rather than a random_id, and that is forced by the
+# provider configuration in versions.tf. The in-perimeter provider needs the
+# workload project as its quota project, provider blocks cannot reference
+# resources, so the project ID has to be knowable from variables alone.
+#
+# Generate one once and keep it: openssl rand -hex 3
 locals {
-  workload_project_id = "${var.name_prefix}-work-${random_id.suffix.hex}"
+  workload_project_id = "${var.name_prefix}-work-${var.workload_name_suffix}"
 
   workload_apis = [
     "bigquery.googleapis.com",

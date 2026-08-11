@@ -34,6 +34,8 @@ resource "google_service_account_iam_member" "admin_impersonates_analyst" {
 }
 
 resource "google_storage_bucket" "protected" {
+  provider = google.inperimeter
+
   name     = "${local.workload_project_id}-protected"
   project  = google_project.workload.project_id
   location = var.region
@@ -55,6 +57,8 @@ resource "google_storage_bucket" "protected" {
 }
 
 resource "google_storage_bucket_object" "secret" {
+  provider = google.inperimeter
+
   name   = "customer-records.txt"
   bucket = google_storage_bucket.protected.name
 
@@ -72,12 +76,16 @@ resource "google_storage_bucket_object" "secret" {
 }
 
 resource "google_storage_bucket_iam_member" "analyst_reads" {
+  provider = google.inperimeter
+
   bucket = google_storage_bucket.protected.name
   role   = "roles/storage.objectViewer"
   member = google_service_account.analyst.member
 }
 
 resource "google_bigquery_dataset" "protected" {
+  provider = google.inperimeter
+
   project    = google_project.workload.project_id
   dataset_id = "${replace(var.name_prefix, "-", "_")}_protected"
   location   = var.region
@@ -95,6 +103,8 @@ resource "google_bigquery_dataset" "protected" {
 # load job and without storing a byte. Querying it exercises the same
 # bigquery.googleapis.com path the perimeter restricts.
 resource "google_bigquery_table" "revenue" {
+  provider = google.inperimeter
+
   project             = google_project.workload.project_id
   dataset_id          = google_bigquery_dataset.protected.dataset_id
   table_id            = "quarterly_revenue"
@@ -112,6 +122,8 @@ resource "google_bigquery_table" "revenue" {
 }
 
 resource "google_bigquery_dataset_iam_member" "analyst_reads" {
+  provider = google.inperimeter
+
   project    = google_project.workload.project_id
   dataset_id = google_bigquery_dataset.protected.dataset_id
   role       = "roles/bigquery.dataViewer"

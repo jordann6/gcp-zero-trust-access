@@ -34,6 +34,24 @@ variable "name_prefix" {
   }
 }
 
+variable "workload_name_suffix" {
+  description = <<-EOT
+    Short suffix making the workload project ID globally unique, for example the
+    output of: openssl rand -hex 3
+
+    An input rather than a random_id because the in-perimeter provider in
+    versions.tf takes the workload project as its quota project, and a provider
+    block cannot reference a resource. Once set, keep it: changing it renames the
+    project, which destroys and recreates everything in it.
+  EOT
+  type        = string
+
+  validation {
+    condition     = can(regex("^[a-z0-9]{4,8}$", var.workload_name_suffix))
+    error_message = "workload_name_suffix must be 4 to 8 lowercase alphanumeric characters."
+  }
+}
+
 variable "region" {
   description = "Region for the subnet, Cloud Run service, and BigQuery dataset."
   type        = string

@@ -178,8 +178,10 @@ cmd_act5() {
   note ""
 
   local out rc=0
+  # --quiet matters. Without it, the first run stops to ask whether to generate
+  # an SSH key pair and the scripted act hangs on a prompt nobody is watching.
   out="$(gcloud compute ssh "${INSTANCE}" \
-    --zone="${ZONE}" --project="${WORKLOAD_PROJECT}" --tunnel-through-iap \
+    --zone="${ZONE}" --project="${WORKLOAD_PROJECT}" --tunnel-through-iap --quiet \
     --command="read-protected ${PROTECTED_BUCKET} ${PROTECTED_OBJECT}" 2>&1)" || rc=$?
 
   if printf '%s' "${out}" | grep -q "SYNTHETIC RECORDS"; then
@@ -190,8 +192,19 @@ cmd_act5() {
   else
     fail "the in-perimeter read did not return the object"
     printf '%s\n' "${out}" | sed 's/^/      /' | head -25
-    note "if this hangs or refuses the login, suspect vpc_accessible_services:"
-    note "dropping oslogin.googleapis.com from that list breaks SSH, not storage"
+    note ""
+    note "Read the error before changing anything. Two very different causes:"
+    note ""
+    note "  'VPC network mapping unavailable' means the perimeter has not"
+    note "  finished propagating. Enforcement reaches the deny path within a"
+    note "  minute or two, but the association between the perimeter and the VPC"
+    note "  network takes longer, and until it lands a request from inside looks"
+    note "  to the perimeter like a request from nowhere. Google documents up to"
+    note "  30 minutes for perimeter changes. Wait and retry before debugging."
+    note ""
+    note "  A login that hangs or is refused points at vpc_accessible_services."
+    note "  Dropping oslogin.googleapis.com from that list breaks SSH, not"
+    note "  storage, and the symptom looks nothing like the cause."
     return 1
   fi
 }

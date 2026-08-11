@@ -34,11 +34,13 @@ This is the point of building it on GCP specifically. Two of these three have no
 
 Two projects, and the split between them is load bearing.
 
-**Seed project**, from `bootstrap/`. Terraform state and the API quota project. Deliberately outside the perimeter.
+**Seed project**, from `bootstrap/`. Terraform state, and the API quota project for everything the perimeter does not restrict. Deliberately outside the perimeter.
 
 **Workload project**, everything else, and the only thing inside the perimeter.
 
 That separation is the single most important decision in the repo. The perimeter restricts `storage.googleapis.com`. If Terraform state lived in a bucket the perimeter covered, then the moment enforcement turned on, Terraform would lose the ability to read the state describing the perimeter, and the only way back would be an org-level policy edit made by hand under time pressure. The general rule: the control plane that can remove a control must never sit inside it.
+
+It has one consequence that took a live failure to find. A quota project outside the perimeter cannot be attached to a call against a resource inside it, so the restricted resources use a second provider whose quota project is the workload project. Finding 2 below has the detail.
 
 ### The two access levels
 
@@ -102,7 +104,8 @@ terraform init && terraform apply
 # 2. Root module, dry run first
 cd ../terraform
 terraform output -state=../bootstrap/terraform.tfstate -raw backend_hcl > backend.hcl
-cp terraform.tfvars.example terraform.tfvars   # seed_project_id, admin_principal, trusted_ip_ranges
+cp terraform.tfvars.example terraform.tfvars   # seed_project_id, admin_principal,
+                                                # trusted_ip_ranges, workload_name_suffix
 terraform init -backend-config=backend.hcl
 terraform apply                                 # enforce_perimeter defaults to false
 
@@ -135,6 +138,32 @@ Six acts:
 6. **The dry run that predicted act 4**, read back out of the audit log.
 
 Acts 2 and 3 are browser-verified. Scripted access to an IAP-protected endpoint needs an OIDC token whose audience is the IAP client, and the machine-checkable half of the argument is acts 4 and 5, which need no browser.
+
+## What the live run found
+
+Seven things, all fixed in the config or written into the scripts. The first two both presented as "my own access broke after enforcing" and had completely different causes, which is the lesson in itself: on a perimeter, read the violation reason before touching the policy.
+
+**1. Enforcement is not atomic, and the deny path lands first.** Within a minute of `enforce_perimeter = true`, the exfiltration attempt from outside was correctly refused. The read from the in-perimeter instance, which should have been allowed, failed for another four minutes with `VPC network mapping unavailable`.
+
+Nothing was misconfigured. The association between the perimeter and the VPC network propagates more slowly than the restriction itself, and until it lands, a request from inside the perimeter looks to the perimeter like a request from nowhere. Google documents up to 30 minutes for perimeter changes. Take that literally and wait before debugging, because the window where your access looks broken is exactly the window where the platform cannot give you a straight answer.
+
+**2. The quota project has to be inside the perimeter, and an ingress rule cannot substitute.** With enforcement on, Terraform could not read the bucket while plain `gcloud storage cat` as the same user could. The obvious conclusion was that the ingress rule was wrong. It was not.
+
+The violation reason was `RESOURCES_NOT_IN_SAME_SERVICE_PERIMETER`, not `NO_MATCHING_ACCESS_LEVEL`. Those are different refusals. `user_project_override` attaches a quota project to every API call the provider makes, and that quota project was the seed, which sits outside the perimeter by design. A call that reads a bucket inside the perimeter while billing a project outside it names two resources on opposite sides of the boundary, and the perimeter refuses it no matter who is asking. No ingress rule can fix that, because nothing about the identity is what is wrong.
+
+The fix is a second provider, aliased `inperimeter`, whose quota project is the workload project, used only by the restricted resources. Both sides of the call then sit in the same perimeter. The seed keeps holding state, outside, where `projects.tf` argues it belongs, because the GCS backend authenticates with ADC directly and carries no quota project override. This is also why `workload_name_suffix` is an input rather than a `random_id`: provider blocks cannot reference resources, so the project ID has to be knowable before anything is created.
+
+The general shape is worth keeping. Two refusals that look identical from the outside, `403 Request is prohibited by organization's policy`, and the only thing that distinguishes them is the violation reason in the audit log. Debugging a perimeter by guessing at the policy is slower than reading one log line.
+
+**3. The dry run caught an API nobody would have predicted.** Within minutes of the instance booting, the dry run logged `agentcommunication.googleapis.com` as `SERVICE_NOT_ALLOWED_FROM_VPC`. The guest agent talks to it continuously and nothing in the design of this build suggested it existed. Enforcing straight away would have half-broken the guest environment, and the symptom would have surfaced later, somewhere else, looking nothing like a perimeter problem. It is now in `vpc_accessible_services`. This is the entire argument for dry run in one log line.
+
+**4. A stale ADC quota project reads as "bucket doesn't exist".** `gcloud auth application-default` still pointed at a seed project deleted by a previous build, and the backend init failed claiming the state bucket was missing. It was not. Fix: `gcloud auth application-default set-quota-project`.
+
+**5. `iap_enabled` on Cloud Run needs provider 7.x.** The sibling GCP repos pin `~> 6.12`, where the field does not exist and the error is a flat "argument not expected". This repo pins `~> 7.0`.
+
+**6. `terraform output -state=...` silently produced an empty file.** Reading the bootstrap output from the root module directory wrote a zero-byte `backend.hcl`, and the next error was about a nonexistent bucket rather than about an empty config. Run `terraform output` from the directory that owns the state.
+
+**7. `gcloud compute ssh` needs `--quiet`.** Without it the first run stops to ask about generating a key pair, and a scripted act hangs on a prompt nobody is watching.
 
 ## Teardown
 

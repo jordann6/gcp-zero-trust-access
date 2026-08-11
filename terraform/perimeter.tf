@@ -24,12 +24,23 @@ locals {
 
   # Services reachable from inside the VPC.
   #
-  # oslogin is the trap in this list. It is not restricted by the perimeter and
-  # has nothing to do with the data being protected, but the guest agent on the
-  # instance calls it on every SSH login. Restrict VPC accessible services
-  # without it and the instance stops accepting logins, which reads as a broken
-  # IAP tunnel and sends you debugging the wrong control entirely.
+  # Two entries here are for the machine, not for the workload, and both were
+  # found by the dry run rather than by reasoning about it beforehand.
+  #
+  # oslogin is called by the guest agent on every SSH login. Restrict VPC
+  # accessible services without it and the instance stops accepting logins,
+  # which reads as a broken IAP tunnel and sends you debugging the wrong control
+  # entirely.
+  #
+  # agentcommunication was not predicted at all. The dry run logged it as
+  # SERVICE_NOT_ALLOWED_FROM_VPC within minutes of the instance booting: the
+  # guest agent talks to it continuously, and nothing in the design of this
+  # build suggested it existed. That is the entire argument for dry run in one
+  # log line. Enforcing straight away would have half-broken the guest
+  # environment, and the symptom would have surfaced later, somewhere else, and
+  # looked nothing like a perimeter problem.
   vpc_allowed_services = [
+    "agentcommunication.googleapis.com",
     "bigquery.googleapis.com",
     "compute.googleapis.com",
     "iamcredentials.googleapis.com",
