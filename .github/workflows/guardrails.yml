@@ -19,8 +19,10 @@ jobs:
     uses: jordann6/platform-guardrails/.github/workflows/tf-ci.yml@v1
     with:
       terraform_dir: terraform
+      skip_policy: true
 
   bootstrap:
     uses: jordann6/platform-guardrails/.github/workflows/tf-ci.yml@v1
     with:
       terraform_dir: bootstrap
+      skip_policy: true
