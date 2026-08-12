@@ -1,0 +1,39 @@
+{
+    "failed_checks": [
+        {
+            "file": "/terraform/data.tf",
+            "findings": [
+                {
+                    "resource": "google_bigquery_dataset.protected",
+                    "check_ids": [
+                        "CKV_GCP_81"
+                    ]
+                },
+                {
+                    "resource": "google_bigquery_table.revenue",
+                    "check_ids": [
+                        "CKV_GCP_121",
+                        "CKV_GCP_80"
+                    ]
+                },
+                {
+                    "resource": "google_storage_bucket.protected",
+                    "check_ids": [
+                        "CKV_GCP_62"
+                    ]
+                }
+            ]
+        },
+        {
+            "file": "/terraform/instance.tf",
+            "findings": [
+                {
+                    "resource": "google_compute_instance.inside",
+                    "check_ids": [
+                        "CKV_GCP_38"
+                    ]
+                }
+            ]
+        }
+    ]
+}
