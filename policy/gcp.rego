@@ -62,11 +62,20 @@ deny contains msg if {
 
 # OS Login binds SSH to IAM. Without it the instance falls back to keys in
 # metadata, which are standing credentials that outlive any access level.
+#
+# object.get with a default, rather than indexing the key directly. Indexing a
+# key that is absent yields undefined, and `undefined != "TRUE"` is itself
+# undefined rather than true, so the rule declined to fire on exactly the case
+# it was written for: an instance whose metadata omits enable-oslogin
+# altogether. It caught only an instance that set the key to some other value,
+# which nobody does. Found 2026-08-13 by policy/fixtures/violations.tf.
+#
+# The `r.body.metadata` guard is gone with it. An instance with no metadata
+# block at all has no enable-oslogin either, and it should fail the same way.
 deny contains msg if {
 	some r in gcp_resources
 	r.type == "google_compute_instance"
-	r.body.metadata
-	r.body.metadata["enable-oslogin"] != "TRUE"
+	object.get(r.body, ["metadata", "enable-oslogin"], "") != "TRUE"
 	msg := sprintf(
 		"%s: google_compute_instance.%s does not set enable-oslogin = TRUE. SSH would fall back to metadata keys.",
 		[r.path, r.name],
@@ -117,11 +126,17 @@ deny contains msg if {
 
 # An access level with no conditions is satisfied by everything, which is worse
 # than no access level, because IAM conditions referencing it look like controls.
+#
+# object.get for the same reason as the oslogin rule above. `basic.conditions`
+# on a `basic {}` block with nothing in it is undefined, and
+# `count(gcp_blocks_of(undefined))` is undefined rather than 0, so an access
+# level with no conditions block at all slipped past the rule whose entire
+# purpose is to catch an access level with no conditions.
 deny contains msg if {
 	some r in gcp_resources
 	r.type == "google_access_context_manager_access_level"
 	some basic in gcp_blocks_of(r.body.basic)
-	count(gcp_blocks_of(basic.conditions)) == 0
+	count(gcp_blocks_of(object.get(basic, "conditions", []))) == 0
 	msg := sprintf(
 		"%s: google_access_context_manager_access_level.%s has no conditions. Everything satisfies it.",
 		[r.path, r.name],

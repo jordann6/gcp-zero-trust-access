@@ -15,17 +15,58 @@ permissions:
 # half is cloud-agnostic and does the work that matters on a pull request:
 # fmt, validate, tflint, Checkov, Trivy config, conftest against policy/, and
 # gitleaks over full history.
+#
+# That last claim was false until 2026-08-13. Both jobs passed skip_policy: true,
+# which turns off the conftest job in tf-ci.yml entirely, so the fourteen rules
+# in policy/gcp.rego never ran once while this comment said they did. The flag
+# is gone. tf-ci.yml runs conftest with --parser hcl2 --combine against the
+# shared suite plus this repo's policy_dir, which defaults to policy/, and both
+# suites pass clean on terraform/ and bootstrap/.
 jobs:
   static:
     uses: jordann6/platform-guardrails/.github/workflows/tf-ci.yml@v1
     with:
       terraform_dir: terraform
-      skip_policy: true
       checkov_baseline: .checkov.baseline
 
   bootstrap:
     uses: jordann6/platform-guardrails/.github/workflows/tf-ci.yml@v1
     with:
       terraform_dir: bootstrap
-      skip_policy: true
       checkov_baseline: .checkov.baseline
+
+  # The guard on the guard.
+  #
+  # A Rego suite does not fail loudly when it breaks, it goes vacuous: a rule
+  # whose first line stops matching the input shape returns no violations, and
+  # no violations is indistinguishable from a clean run. platform-guardrails
+  # protects its own shared suite this way in self-test.yml. This is the same
+  # protection for the rules that live in this repo.
+  #
+  # Building the fixture immediately paid for itself. It found two rules that
+  # could never fire: the oslogin rule indexed a metadata key directly, so an
+  # instance omitting enable-oslogin entirely produced undefined rather than a
+  # violation, and the access-level rule had the same shape of gap on an empty
+  # basic block. Both are fixed, and both are now covered here.
+  policy_fixture:
+    name: Policy is not vacuous
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install conftest
+        run: |
+          set -euo pipefail
+          VERSION=0.56.0
+          curl -sSL "https://github.com/open-policy-agent/conftest/releases/download/v${VERSION}/conftest_${VERSION}_Linux_x86_64.tar.gz" |
+            sudo tar -xz -C /usr/local/bin conftest
+
+      - name: The violating fixture must fail
+        run: |
+          set -euo pipefail
+          if conftest test --parser hcl2 --combine \
+               --policy policy policy/fixtures/violations.tf >/dev/null 2>&1; then
+            echo "::error::The violating fixture PASSED, which means the rules are matching nothing."
+            exit 1
+          fi
+          echo "Violating fixture was blocked as expected."
