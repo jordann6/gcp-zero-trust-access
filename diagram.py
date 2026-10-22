@@ -26,7 +26,7 @@ from diagrams.onprem.client import User
 
 GRAPH_ATTR = {
     "fontsize": "16",
-    "labelloc": "t",
+    "labelloc": "b",
     "pad": "0.6",
     "splines": "spline",
     "nodesep": "0.8",
@@ -82,7 +82,7 @@ with Diagram(
     # The comparison the whole build exists to make. Same identity, same role,
     # same object, opposite answers.
     vpc >> Edge(label="reads", **ALLOW) >> bucket
-    attacker >> Edge(label="same role, denied", **DENY) >> bucket
+    attacker >> Edge(xlabel="same role, denied", **DENY) >> bucket
     attacker >> Edge(label="denied", **DENY) >> dataset
 
     # The escape hatch, drawn because leaving it implicit would misrepresent the

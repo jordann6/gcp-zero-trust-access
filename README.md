@@ -6,6 +6,13 @@ The demo is that comparison, plus the front door it sits behind: an application 
 
 ![Architecture](docs/architecture.png)
 
+Top: the same service account, holding the same role, reads the bucket from
+the instance inside the perimeter and is refused from outside it. Middle: the
+administrator reaches the instance only through an IAP TCP tunnel, and the
+Cloud Run app only through IAP, gated by an access level that requires both
+identity and network. Bottom: the break-glass access level admits on identity
+alone, through a perimeter ingress rule.
+
 **Cost:** under $1 for a full deploy, demo, and destroy cycle. Standing cost if left up is about $6 a month, nearly all of it one e2-micro instance. Access Context Manager, VPC Service Controls, and IAP are free. **Teardown:** three things live at the organization, not in the project, and outlive it. All handled by `scripts/destroy.sh`, all documented below.
 
 ## The problem
